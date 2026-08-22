@@ -127,10 +127,11 @@ export async function onRequest(context) {
       version
     );
 
-    // Spoof official headers to bypass the "Direct API entry closed" block
+    // EXACT APP SPOOFING: Bypasses the direct entry block by looking like a mobile app
     upstreamHeaders.set("Referer", "https://apiserver.deltastudy.site/");
     upstreamHeaders.set("Origin", "https://apiserver.deltastudy.site");
-    upstreamHeaders.set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+    upstreamHeaders.set("X-Requested-With", "xyz.nexttoppers.student");
+    upstreamHeaders.set("User-Agent", "Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36");
 
     if (env.COURSE_USER_ID) {
       upstreamHeaders.set(
