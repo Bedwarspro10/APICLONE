@@ -1,0 +1,11 @@
+{
+  "name": "nexttoppers-cloudflare-recovery",
+  "private": true,
+  "description": "Next Toppers recovery bundle for Cloudflare Pages",
+  "scripts": {
+    "dev": "wrangler pages dev ."
+  },
+  "devDependencies": {
+    "wrangler": "latest"
+  }
+}

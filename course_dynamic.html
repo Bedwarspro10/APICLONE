@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nexttoppers · Course Details</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Teko:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg: #05070a;
+      --card-bg: #111319;
+      --accent: #ff7e21;
+      --text-primary: #ffffff;
+      --text-secondary: #888b94;
+      --border: rgba(255, 255, 255, 0.06);
+      --grid-color: rgba(255, 126, 33, 0.03);
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; background-color: var(--bg); color: var(--text-primary); min-height: 100vh; }
+    .atmosphere { position: fixed; inset: 0; z-index: -1; pointer-events: none; }
+    .grid-overlay { position: absolute; inset: 0; background-image: linear-gradient(var(--grid-color) 1px, transparent 1px), linear-gradient(90deg, var(--grid-color) 1px, transparent 1px); background-size: 60px 60px; }
+    header { position: sticky; top: 0; z-index: 100; background: rgba(5, 7, 10, 0.8); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); padding: 16px 40px; display: flex; align-items: center; justify-content: space-between; }
+    .back-btn { background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border); border-radius: 8px; padding: 8px 16px; color: var(--text-secondary); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; cursor: pointer; text-decoration: none; }
+    .nav-brand { display: flex; align-items: center; gap: 12px; text-decoration: none; }
+    .brand-logo { width: 32px; height: 32px; background: linear-gradient(135deg, #ff7e21, #ff4d00); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-family: 'Teko', sans-serif; font-weight: 700; color: white; }
+    .brand-name { font-family: 'Teko', sans-serif; font-size: 1.4rem; color: var(--accent); text-transform: uppercase; }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 40px 20px 100px; }
+    .hero { background: var(--card-bg); border: 1px solid var(--border); border-radius: 24px; padding: 32px; margin-bottom: 40px; }
+    .hero-title { font-family: 'Teko', sans-serif; font-size: 3rem; text-transform: uppercase; }
+    .tabs-wrap { position: sticky; top: 73px; z-index: 90; background: rgba(5, 7, 10, 0.8); backdrop-filter: blur(12px); margin: 0 -20px 32px; padding: 0 20px; border-bottom: 1px solid var(--border); }
+    .tabs-bar { display: flex; gap: 32px; }
+    .tab-btn { padding: 20px 0; background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--text-secondary); font-family: 'Teko', sans-serif; font-size: 1.1rem; cursor: pointer; text-transform: uppercase; }
+    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; }
+    .sec-label { font-size: 0.7rem; font-weight: 800; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+    
+    /* ACCORDION TREE STYLES */
+    .tree-list { display: flex; flex-direction: column; gap: 8px; }
+    .tree-item { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; transition: border-color 0.2s; }
+    .tree-item:hover { border-color: rgba(255, 126, 33, 0.4); }
+    .tree-header { padding: 14px 18px; display: flex; align-items: center; gap: 12px; cursor: pointer; user-select: none; }
+    .tree-title { font-family: 'Teko', sans-serif; font-size: 1.2rem; text-transform: uppercase; flex: 1; }
+    .tree-arrow { color: var(--accent); font-size: 0.8rem; transition: transform 0.2s; }
+    .tree-item.open > .tree-header .tree-arrow { transform: rotate(90deg); }
+    .tree-content { display: none; padding: 0 16px 16px 16px; border-top: 1px solid var(--border); background: rgba(0,0,0,0.2); }
+    .tree-item.open > .tree-content { display: block; padding-top: 12px; }
+
+    .state-box { padding: 60px 20px; text-align: center; background: var(--card-bg); border: 1px solid var(--border); border-radius: 24px; color: var(--text-secondary); }
+    .loader { position: fixed; inset: 0; z-index: 1000; background: var(--bg); display: none; flex-direction: column; align-items: center; justify-content: center; }
+    .loader.show { display: flex; }
+    .spin { width: 40px; height: 40px; border: 3px solid rgba(255, 126, 33, 0.1); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<div class="atmosphere"><div class="grid-overlay"></div></div>
+<div class="loader show" id="loadingOverlay"><div class="spin"></div></div>
+
+<header>
+  <div class="header-l">
+    <a href="index.html" class="back-btn">← Home</a>
+    <a href="index.html" class="nav-brand">
+      <div class="brand-logo">NT</div>
+      <span class="brand-name">Nexttoppers</span>
+    </a>
+  </div>
+  <div class="course-id-chip" id="courseChip">#176</div>
+</header>
+
+<div class="wrap">
+  <div class="hero">
+    <div class="hero-title" id="heroTitle">Loading Course...</div>
+  </div>
+
+  <div class="tabs-wrap">
+    <div class="tabs-bar">
+      <button class="tab-btn active" data-tab="overview">Overview</button>
+      <button class="tab-btn" data-tab="content">Course Content</button>
+      <button class="tab-btn" data-tab="live">Live Classes</button>
+    </div>
+  </div>
+
+  <div id="pane-overview" class="tab-pane active">
+    <div class="sec-label">About This Course</div>
+    <div class="state-box" id="courseDesc">Loading overview details...</div>
+  </div>
+
+  <div id="pane-content" class="tab-pane">
+    <div class="sec-label">Course Chapters & Content</div>
+    <div id="foldersList" class="tree-list">
+      <div class="state-box">Loading course structure...</div>
+    </div>
+  </div>
+
+  <div id="pane-live" class="tab-pane">
+    <div class="sec-label">Scheduled Live Classes</div>
+    <div class="state-box">No upcoming live sessions.</div>
+  </div>
+</div>
+
+
+
+<script src="api-helper.js"></script>
+
+<script>
+  const urlParams = new URLSearchParams(window.location.search);
+  const courseId = urlParams.get('course_id') || '176';
+  document.getElementById('courseChip').innerText = `#${courseId}`;
+
+  async function loadCourse() {
+    if (typeof API === 'undefined') {
+      showError("API helper library failed to load.");
+      return;
+    }
+
+    try {
+      const response = await API.post('course-details', { course_id: courseId, parent_id: '0' }, 'nexttoppers-course');
+      if (response && response.success && response.data) {
+        renderCourseUI(response.data);
+        fetchRootContent();
+      } else {
+        showError("Failed to fetch course details.");
+      }
+    } catch (err) {
+      showError(err.message || "An unexpected error occurred.");
+    } finally {
+      document.getElementById('loadingOverlay').classList.remove('show');
+    }
+  }
+
+  function renderCourseUI(dataArray) {
+    const overviewSection = Array.isArray(dataArray) ? dataArray.find(item => item.type === "overview") : null;
+    const detailsLayout = overviewSection?.data?.find(layout => layout.layout_type === "details");
+    const details = detailsLayout?.layout_data?.[0];
+    if (!details) return;
+
+    document.getElementById('heroTitle').innerText = details.title || 'Course Details';
+    if (details.description) {
+      document.getElementById('courseDesc').innerHTML = details.description;
+    }
+  }
+
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const tabName = e.target.getAttribute('data-tab');
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+      
+      e.target.classList.add('active');
+      document.getElementById(`pane-${tabName}`).classList.add('active');
+    });
+  });
+
+  async function fetchRootContent() {
+    const container = document.getElementById('foldersList');
+    try {
+      const payload = {
+        course_id: String(courseId),
+        folder_id: "0",
+        is_free: "",
+        keyword: "",
+        limit: "1000",
+        page: "1",
+        parent_course_id: "0"
+      };
+
+      const response = await API.post('all-content', payload, 'nexttoppers-course');
+      let items = [];
+      if (response && response.success) {
+        if (Array.isArray(response.data)) items = response.data;
+        else if (response.data && Array.isArray(response.data.list)) items = response.data.list;
+      }
+
+      renderTreeRoot(items, container);
+    } catch (err) {
+      console.error("Root content fetch error:", err);
+      container.innerHTML = `<div class="state-box" style="color: #ff4d4d;">Failed to load course contents.</div>`;
+    }
+  }
+
+  function renderTreeRoot(items, container) {
+    if (!Array.isArray(items) || items.length === 0) {
+      container.innerHTML = `<div class="state-box">No content found.</div>`;
+      return;
+    }
+
+    container.innerHTML = '';
+    items.forEach((item, index) => {
+      const title = item.title || item.data?.title || item.name || "Untitled";
+      const subjectId = String(item.data?.id || item.entity_id || item.id || index);
+
+      const itemDiv = document.createElement('div');
+      itemDiv.className = 'tree-item';
+      itemDiv.innerHTML = `
+        <div class="tree-header">
+          <span>📁</span>
+          <span class="tree-title">${escapeHtml(title)}</span>
+          <span class="tree-arrow">▶</span>
+        </div>
+        <div class="tree-content">
+          <div class="state-box" style="padding: 20px; font-size: 0.8rem;">Loading subfolders...</div>
+        </div>
+      `;
+
+      const header = itemDiv.querySelector('.tree-header');
+      let loadedSubfolders = false;
+
+      header.addEventListener('click', async () => {
+        const isOpen = itemDiv.classList.toggle('open');
+        
+        if (isOpen && !loadedSubfolders) {
+          loadedSubfolders = true;
+          const contentDiv = itemDiv.querySelector('.tree-content');
+          // Fix: Pass subjectId as both subject_id context and parent_id for proper expansion
+          await fetchSubfoldersAndFiles(subjectId, subjectId, contentDiv);
+        }
+      });
+
+      container.appendChild(itemDiv);
+    });
+  }
+
+  async function fetchSubfoldersAndFiles(subjectId, parentId, contentContainer) {
+    try {
+      const payload = {
+        course_id: String(courseId),
+        folder_id: String(parentId),
+        is_free: "",
+        keyword: "",
+        limit: "1000",
+        page: "1",
+        parent_course_id: "0"
+      };
+
+      const response = await API.post('all-content', payload, 'nexttoppers-course');
+      let items = [];
+      if (response && response.success) {
+        if (Array.isArray(response.data)) items = response.data;
+        else if (response.data && Array.isArray(response.data.list)) items = response.data.list;
+      }
+
+      if (items.length === 0) {
+        contentContainer.innerHTML = `<div style="color: var(--text-secondary); font-size: 0.85rem; padding: 8px;">No items inside.</div>`;
+        return;
+      }
+
+      contentContainer.innerHTML = '';
+      const subTreeList = document.createElement('div');
+      subTreeList.className = 'tree-list';
+
+      items.forEach((subItem, idx) => {
+        const subType = subItem.type || subItem.data?.type || "folder";
+        const subTitle = subItem.title || subItem.data?.title || subItem.name || "Untitled";
+        const subId = String(subItem.data?.id || subItem.entity_id || subItem.id || idx);
+
+        if (subType === "folder") {
+          const subDiv = document.createElement('div');
+          subDiv.className = 'tree-item';
+          subDiv.innerHTML = `
+            <div class="tree-header" style="padding: 10px 14px;">
+              <span style="font-size:0.9rem;">📂</span>
+              <span class="tree-title" style="font-size:1.05rem;">${escapeHtml(subTitle)}</span>
+              <span class="tree-arrow">▶</span>
+            </div>
+            <div class="tree-content">
+              <div style="color: var(--text-secondary); font-size: 0.8rem; padding: 10px;">Loading files...</div>
+            </div>
+          `;
+
+          let loadedFiles = false;
+          subDiv.querySelector('.tree-header').addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const isSubOpen = subDiv.classList.toggle('open');
+            if (isSubOpen && !loadedFiles) {
+              loadedFiles = true;
+              const innerContainer = subDiv.querySelector('.tree-content');
+              await fetchSubfoldersAndFiles(subjectId, subId, innerContainer);
+            }
+          });
+          subTreeList.appendChild(subDiv);
+        } else {
+          const fileDiv = document.createElement('div');
+          fileDiv.className = 'tree-item';
+          fileDiv.style.cursor = 'pointer';
+          fileDiv.style.padding = '10px 14px';
+          fileDiv.style.display = 'flex';
+          fileDiv.style.alignItems = 'center';
+          fileDiv.style.gap = '10px';
+          fileDiv.innerHTML = `
+            <span>🎥</span>
+            <span style="font-family: 'Teko', sans-serif; font-size: 1.05rem; text-transform: uppercase; flex:1;">${escapeHtml(subTitle)}</span>
+            <span style="color: var(--accent); font-size: 0.8rem;">▶</span>
+          `;
+
+          fileDiv.addEventListener('click', (e) => {
+            e.stopPropagation();
+            openMedia(subItem);
+          });
+          subTreeList.appendChild(fileDiv);
+        }
+      });
+
+      contentContainer.appendChild(subTreeList);
+    } catch (err) {
+      console.error("Sub-content fetch error:", err);
+      contentContainer.innerHTML = `<div style="color: #ff4d4d; font-size: 0.8rem; padding: 8px;">Failed to load inner contents.</div>`;
+    }
+  }
+
+  async function openMedia(fileObj) {
+    const id = String(fileObj?.entity_id || fileObj?.data?.id || fileObj?.id || "");
+    const title = fileObj?.title || fileObj?.data?.title || fileObj?.name || "Content";
+    const fileType = Number(fileObj?.data?.file_type || fileObj?.data?.content_type || 0);
+
+    if (!id) {
+      alert("Content ID is missing.");
+      return;
+    }
+
+    // Video content: resolve through the authorized content-details API,
+    // then hand the returned playable URL to the local player.
+    if (fileType === 2 || fileObj?.type === "file" && fileObj?.data?.vdc_id) {
+      window.open(
+        `player.html?content_id=${encodeURIComponent(id)}&course_id=${encodeURIComponent(courseId)}&title=${encodeURIComponent(title)}`,
+        '_blank'
+      );
+      return;
+    }
+
+    // Documents/PDFs: resolve the real file URL through content-details.
+    const win = window.open('', '_blank');
+    if (!win) {
+      alert("Please allow pop-ups for this site.");
+      return;
+    }
+    win.document.write('<!doctype html><html><body style="margin:0;background:#05070a;color:#fff;font-family:system-ui;display:grid;place-items:center;height:100vh"><div>Opening document…</div></body></html>');
+
+    try {
+      const response = await API.get('content-details', {
+        content_id: id,
+        course_id: String(courseId)
+      }, 'nexttoppers-content');
+
+      const data = response?.data || {};
+      const fileUrl = data.file_url || data.url || data.pdf_view_url || data.document_url || '';
+
+      if (!fileUrl || !/^https?:\/\//i.test(fileUrl)) {
+        win.close();
+        alert(response?.message || 'No document URL was returned for this content.');
+        return;
+      }
+
+      win.location.replace(fileUrl);
+    } catch (err) {
+      win.close();
+      console.error('Content details error:', err);
+      alert(err?.message || 'Unable to open this content.');
+    }
+  }
+
+  function showError(msg) {
+    document.getElementById('loadingOverlay').classList.remove('show');
+    const container = document.getElementById('foldersList');
+    if (container) container.innerHTML = `<div class="state-box" style="color: #ff4d4d;">${escapeHtml(msg)}</div>`;
+  }
+
+  function escapeHtml(str) {
+    return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+  }
+
+  window.addEventListener('DOMContentLoaded', loadCourse);
+</script>
+
+</body>
+</html>

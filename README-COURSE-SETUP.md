@@ -1,32 +1,32 @@
 # Course API setup
 
-This bundle contains the complete static site plus the `/course` Cloudflare Pages Function.
+This is a Cloudflare Pages site with a `/functions/course.js` server-side proxy for an authorized Next Toppers course API account.
 
-## Cloudflare Pages
+## Required Cloudflare settings
 
-1. Deploy the repository with `index.html` at the project root.
-2. Keep `functions/course.js` in the `functions/` directory.
-3. In Cloudflare Pages → Settings → Environment variables, configure these **server-side** values:
+Keep these values server-side:
 
-- `COURSE_API_TOKEN` — your own authorized API credential
-- `COURSE_APP_ID` — application ID required by your authorized API
-- `COURSE_USER_ID` — user ID required by your authorized API, if applicable
-- `COURSE_PLATFORM` — normally the platform value supplied by your API contract
-- `COURSE_VERSION` — API version supplied by your API contract
-- `COURSE_API_ORIGIN` — course API origin, if different from the default
-- `CONTENT_API_ORIGIN` — content/video API origin, if different from the default
+- `COURSE_API_TOKEN` — **Secret**, your own authorized Bearer credential
+- `COURSE_API_ORIGIN` — `https://course.nexttoppers.com`
+- `COURSE_APP_ID` — `1770981347`
+- `COURSE_PLATFORM` — `3`
+- `COURSE_VERSION` — `1`
+- `COURSE_USER_ID` — optional; if omitted, the Worker reads `user_id` from the JWT payload when available
 
-Do **not** put bearer tokens in `js/api-helper.js`, `index.html`, or `course_dynamic.html`.
+Do not put the Bearer token in HTML, browser JavaScript, `wrangler.toml`, or GitHub.
 
-## Supported course operations
+## Supported proxy endpoints
 
-The adapter currently supports:
+- `course-details` — POST
+- `all-content` — POST
+- `content-details` — GET; the Worker also accepts legacy POST requests and translates their JSON body to the required GET query parameters
 
-- `course-details`
-- `all-content`
-- `content-details`
-- `video-details`
+The browser-only `target` parameter is stripped before requests reach the upstream API.
 
-IDs such as `course_id`, `folder_id`, `content_id`, and `videoid` are passed dynamically.
+## CORS
 
-This bundle is intended for APIs/accounts you are authorized to access.
+The Worker handles `OPTIONS` preflight and allows `prefers-color-scheme` along with the API headers used by the frontend.
+
+## Content handling
+
+Normal API responses containing a direct `file_url` can be opened/played by the frontend. Protected/encrypted payloads are passed through rather than decrypted or bypassed by this project.

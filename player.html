@@ -1,0 +1,23 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>NextToppers Player</title>
+<link rel="stylesheet" href="styles.css">
+<style>body{margin:0;background:#05070a;color:#fff;font-family:Inter,system-ui,sans-serif}.wrap{min-height:100vh;display:flex;flex-direction:column}.head{height:64px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;border-bottom:1px solid #ffffff12}.title{font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.close{border:1px solid #ffffff18;background:#11151b;color:#fff;border-radius:10px;padding:9px 13px}.player{flex:1;display:grid;place-items:center;padding:12px}.video{width:min(1100px,100%);aspect-ratio:16/9;background:#000;border-radius:14px;overflow:hidden}.video video{width:100%;height:100%}.state{position:absolute;inset:0;display:grid;place-items:center;color:#aaa;padding:20px;text-align:center}.box{position:relative;width:min(1100px,100%);aspect-ratio:16/9}.spinner{width:38px;height:38px;border:3px solid #ffffff18;border-top-color:#ff7e21;border-radius:50%;animation:s 1s linear infinite}@keyframes s{to{transform:rotate(360deg)}}</style></head>
+<body><div class="wrap"><div class="head"><div class="title" id="title">Loading…</div><button class="close" onclick="history.back()">Close</button></div><main class="player"><div class="box"><div class="video"><video id="video" controls playsinline></video></div><div class="state" id="state"><div><div class="spinner"></div><div style="margin-top:10px">Resolving content…</div></div></div></div></main></div>
+<script src="api-helper.js"></script><script>
+(async()=>{
+ const qs=new URLSearchParams(location.search); const id=qs.get('content_id'); const course=qs.get('course_id')||'176'; const title=qs.get('title')||'Video';
+ document.getElementById('title').textContent=title;
+ const video=document.getElementById('video'), state=document.getElementById('state');
+ try{
+   let url=qs.get('video_url')||'';
+   if(!url){
+     const res=await API.get('content-details',{content_id:id,course_id:course},'nexttoppers-course');
+     const data=res?.data;
+     if(typeof data==='string') throw new Error('This content is returned in a protected format and cannot be resolved by this proxy.');
+     url=data?.file_url||data?.url||data?.video_url||data?.m3u8||'';
+   }
+   if(!url) throw new Error('No playable URL returned.');
+   video.src=url; video.addEventListener('loadedmetadata',()=>state.remove(),{once:true});
+   video.addEventListener('error',()=>state.innerHTML='<div>Video could not be loaded by this browser/player.</div>');
+ }catch(e){console.error(e);state.innerHTML='<div>Content could not be loaded.<br><small>'+String(e.message||e)+'</small></div>';}
+})();
+</script></body></html>
