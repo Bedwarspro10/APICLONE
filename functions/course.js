@@ -1,12 +1,11 @@
 const DEFAULT_COURSE_API_ORIGIN = "https://course.nexttoppers.com";
-const DEFAULT_CONTENT_API_ORIGIN = "https://apiserver.deltastudy.site";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers":
-    "Content-Type, Accept, Authorization, app_id, platform, Version, user_id, prefers-color-scheme",
-  "Access-Control-Max-Age": "86400"
+  "Access-Control-Allow-Headers": "Content-Type, Accept, Authorization, app_id, platform, Version, user_id, prefers-color-scheme",
+  "Access-Control-Max-Age": "86400",
+  "Vary": "Origin"
 };
 
 function json(data, status = 200) {
@@ -20,15 +19,40 @@ function json(data, status = 200) {
   });
 }
 
-export async function onRequest(context) {
+function getJwtUserId(token) {
   try {
-    const request = context.request;
-    const env = context.env || {};
+    const parts = token.split(".");
+    if (parts.length !== 3) return "";
+    const payload = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = payload + "=".repeat((4 - payload.length % 4) % 4);
+    const decoded = atob(padded);
+    const obj = JSON.parse(decoded);
+    return obj?.user_id != null ? String(obj.user_id) : "";
+  } catch (_) {
+    return "";
+  }
+}
 
-    if (request.method === "OPTIONS") {
-      return new Response(null, { status: 204, headers: CORS_HEADERS });
-    }
+function copyQueryParams(source, target) {
+  for (const [key, value] of source.searchParams) {
+    if (key === "endpoint" || key === "target") continue;
+    target.searchParams.append(key, value);
+  }
+}
 
+export async function onRequest(context) {
+  const request = context.request;
+  const env = context.env || {};
+
+  if (request.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: CORS_HEADERS });
+  }
+
+  if (request.method !== "GET" && request.method !== "POST") {
+    return json({ success: false, message: "Method not allowed." }, 405);
+  }
+
+  try {
     const rawToken = env.COURSE_API_TOKEN;
     if (!rawToken) {
       return json({ success: false, message: "COURSE_API_TOKEN is not configured." }, 500);
@@ -39,101 +63,78 @@ export async function onRequest(context) {
       return json({ success: false, message: "COURSE_API_TOKEN is empty." }, 500);
     }
 
-    const url = new URL(request.url);
-    const endpoint = url.searchParams.get("endpoint");
-
-    if (!endpoint) {
-      return json({ success: false, message: "Missing endpoint." }, 400);
+    const incomingUrl = new URL(request.url);
+    const endpoint = incomingUrl.searchParams.get("endpoint");
+    if (!endpoint || !/^[A-Za-z0-9_-]+$/.test(endpoint)) {
+      return json({ success: false, message: "Missing or invalid endpoint." }, 400);
     }
 
-    if (!/^[a-zA-Z0-9_-]+$/.test(endpoint)) {
-      return json({ success: false, message: "Invalid endpoint." }, 400);
-    }
+    const origin = String(env.COURSE_API_ORIGIN || DEFAULT_COURSE_API_ORIGIN).replace(/\/+$/, "");
+    const upstreamUrl = new URL(`${origin}/course/${endpoint}`);
 
-    const courseOrigin = String(env.COURSE_API_ORIGIN || DEFAULT_COURSE_API_ORIGIN).replace(/\/+$/, "");
-    const contentOrigin = String(env.CONTENT_API_ORIGIN || DEFAULT_CONTENT_API_ORIGIN).replace(/\/+$/, "");
+    // The browser-only 'target' parameter belongs to this proxy and must not
+    // be forwarded to Next Toppers. All real API query parameters are copied.
+    copyQueryParams(incomingUrl, upstreamUrl);
 
-    let upstreamUrl;
-    if (endpoint === "content-details") {
-      upstreamUrl = `${contentOrigin}/api/nexttoppers/content-details`;
-    } else {
-      upstreamUrl = `${courseOrigin}/course/${endpoint}`;
-    }
+    const headers = new Headers();
+    headers.set("Accept", "application/json, text/plain, */*");
+    headers.set("Authorization", `Bearer ${token}`);
+    headers.set("app_id", String(env.COURSE_APP_ID || "1770981347").trim());
+    headers.set("platform", String(env.COURSE_PLATFORM || "3").trim());
+    headers.set("Version", String(env.COURSE_VERSION || "1").trim());
+    headers.set("Origin", "https://course.nexttoppers.com");
+    headers.set("Referer", "https://course.nexttoppers.com/");
 
-    // FIX 2: Safely forward ALL query parameters (like target=nexttoppers-content)
-    const params = new URLSearchParams();
-    for (const [key, value] of url.searchParams) {
-      if (key !== "endpoint") {
-        params.append(key, value);
-      }
-    }
-    const query = params.toString();
-    const finalUpstreamUrl = query ? `${upstreamUrl}?${query}` : upstreamUrl;
+    const userId = String(env.COURSE_USER_ID || getJwtUserId(token)).trim();
+    if (userId) headers.set("user_id", userId);
 
-    const appId = String(env.COURSE_APP_ID || "1770981347").trim();
-    const platform = String(env.COURSE_PLATFORM || "3").trim();
-    const version = String(env.COURSE_VERSION || "1").trim();
-
-    const upstreamHeaders = new Headers();
-    upstreamHeaders.set("Accept", "application/json, text/plain, */*");
-    upstreamHeaders.set("Authorization", `Bearer ${token}`);
-    upstreamHeaders.set("app_id", appId);
-    upstreamHeaders.set("platform", platform);
-    upstreamHeaders.set("Version", version);
-
-    // FIX 1: Spoof the OFFICIAL website domain, not the API server domain!
-    upstreamHeaders.set("Referer", "https://deltastudy.site/");
-    upstreamHeaders.set("Origin", "https://deltastudy.site");
-    
-    // Pass along your actual device User-Agent dynamically
-    const incomingUA = request.headers.get("User-Agent");
-    if (incomingUA) {
-        upstreamHeaders.set("User-Agent", incomingUA);
-    } else {
-        upstreamHeaders.set("User-Agent", "Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36");
-    }
-
-    if (env.COURSE_USER_ID) {
-      upstreamHeaders.set("user_id", String(env.COURSE_USER_ID).trim());
-    }
-
-    let response;
+    const init = { method: request.method, headers };
 
     if (request.method === "POST") {
-      const body = await request.text();
-      upstreamHeaders.set("Content-Type", "application/json");
-      
-      // Use finalUpstreamUrl to ensure target parameters are kept during POST
-      response = await fetch(finalUpstreamUrl, {
-        method: "POST",
-        headers: upstreamHeaders,
-        body
-      });
-    } else if (request.method === "GET") {
-      response = await fetch(finalUpstreamUrl, {
-        method: "GET",
-        headers: upstreamHeaders
-      });
-    } else {
-      return json({ success: false, message: "Method not allowed." }, 405);
+      const bodyText = await request.text();
+      headers.set("Content-Type", request.headers.get("Content-Type") || "application/json");
+      init.body = bodyText;
     }
 
-    const responseText = await response.text();
+    // Next Toppers exposes content-details as GET. If the old frontend sends
+    // it as POST, translate the JSON body into query parameters here so both
+    // old and new frontend code work without changing the upstream API.
+    if (endpoint === "content-details" && request.method === "POST") {
+      const bodyText = await request.text();
+      let body = {};
+      try { body = JSON.parse(bodyText || "{}"); } catch (_) {}
 
-    return new Response(responseText, {
-      status: response.status,
-      headers: {
-        ...CORS_HEADERS,
-        "Content-Type": response.headers.get("Content-Type") || "application/json; charset=utf-8",
-        "Cache-Control": "no-store"
+      for (const [key, value] of Object.entries(body)) {
+        if (value !== undefined && value !== null && value !== "") {
+          const normalizedKey = key === "courseid" ? "course_id" : key;
+          upstreamUrl.searchParams.set(normalizedKey, String(value));
+        }
       }
-    });
 
+      delete init.body;
+      init.method = "GET";
+      headers.delete("Content-Type");
+    }
+
+    const upstreamResponse = await fetch(upstreamUrl.toString(), init);
+    const responseBody = await upstreamResponse.arrayBuffer();
+
+    const responseHeaders = new Headers(CORS_HEADERS);
+    responseHeaders.set(
+      "Content-Type",
+      upstreamResponse.headers.get("Content-Type") || "application/json; charset=utf-8"
+    );
+    responseHeaders.set("Cache-Control", "no-store");
+
+    return new Response(responseBody, {
+      status: upstreamResponse.status,
+      headers: responseHeaders
+    });
   } catch (error) {
-    console.error("COURSE FUNCTION ERROR:", error);
+    console.error("COURSE FUNCTION ERROR", error);
     return json({
       success: false,
-      message: "Course function exception.",
+      message: "Course API request failed.",
       error: error?.message || String(error)
     }, 500);
   }
