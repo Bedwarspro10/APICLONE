@@ -1,76 +1,188 @@
 /**
  * Cloudflare Pages Function: /course
  *
- * Server-side API adapter for an AUTHORIZED integration.
- * Configure COURSE_API_TOKEN as a Cloudflare Pages/Workers secret.
- * Never place a bearer token in browser JavaScript or commit it to Git.
+ * Required:
+ *   COURSE_API_ORIGIN
+ *   COURSE_API_TOKEN
+ *
+ * Optional:
+ *   COURSE_APP_ID
+ *   COURSE_PLATFORM
+ *   COURSE_USER_ID
+ *   COURSE_VERSION
  */
-export async function onRequest(context) {
-  const { request, env } = context;
-  const url = new URL(request.url);
 
-  const cors = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept',
-    'Vary': 'Origin'
-  };
-
-  if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
-
-  const endpoint = url.searchParams.get('endpoint');
-  const token = env.COURSE_API_TOKEN;
-  if (!endpoint) return json({ success: false, message: 'Missing endpoint' }, 400, cors);
-  if (!token) return json({ success: false, message: 'COURSE_API_TOKEN is not configured.' }, 500, cors);
-
-  const courseOrigin = env.COURSE_API_ORIGIN || 'https://course.nexttoppers.com';
-  const contentOrigin = env.CONTENT_API_ORIGIN || 'https://apiserver.deltastudy.site';
-
-  const courseEndpoints = new Set(['course-details', 'all-content']);
-  const contentEndpoints = new Set(['content-details', 'video-details']);
-
-  try {
-    let upstream;
-    let init = {
-      method: request.method,
-      headers: {
-        Accept: 'application/json, text/plain, */*',
-        Authorization: `Bearer ${token}`,
-        app_id: env.COURSE_APP_ID || '1770981347',
-        platform: env.COURSE_PLATFORM || '3',
-        user_id: env.COURSE_USER_ID || '',
-        Version: env.COURSE_VERSION || '1'
-      }
-    };
-
-    if (courseEndpoints.has(endpoint)) {
-      upstream = new URL(`/course/${endpoint}`, courseOrigin);
-      if (request.method === 'GET') {
-        for (const [k, v] of url.searchParams) if (k !== 'endpoint' && k !== 'target') upstream.searchParams.set(k, v);
-      } else {
-        init.headers['Content-Type'] = 'application/json';
-        init.body = await request.text();
-      }
-    } else if (contentEndpoints.has(endpoint)) {
-      upstream = new URL(`/api/nexttoppers/${endpoint}`, contentOrigin);
-      for (const [k, v] of url.searchParams) if (k !== 'endpoint' && k !== 'target') upstream.searchParams.set(k, v);
-    } else {
-      return json({ success: false, message: `Unsupported endpoint: ${endpoint}` }, 400, cors);
-    }
-
-    const response = await fetch(upstream.toString(), init);
-    const body = await response.text();
-    const headers = new Headers(cors);
-    headers.set('Content-Type', response.headers.get('content-type') || 'application/json; charset=utf-8');
-    return new Response(body, { status: response.status, headers });
-  } catch (error) {
-    return json({ success: false, message: error?.message || 'Upstream request failed' }, 502, cors);
-  }
+function json(data, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: {
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "no-store",
+    },
+  });
 }
 
-function json(value, status, cors) {
-  return new Response(JSON.stringify(value), {
-    status,
-    headers: { ...cors, 'Content-Type': 'application/json; charset=utf-8' }
-  });
+function cleanOrigin(value) {
+  return String(value || "").replace(/\/+$/, "");
+}
+
+export async function onRequest(context) {
+  const { request, env } = context;
+
+  if (!env.COURSE_API_ORIGIN) {
+    return json(
+      {
+        success: false,
+        message: "COURSE_API_ORIGIN is not configured.",
+      },
+      500
+    );
+  }
+
+  if (!env.COURSE_API_TOKEN) {
+    return json(
+      {
+        success: false,
+        message: "COURSE_API_TOKEN is not configured.",
+      },
+      500
+    );
+  }
+
+  const incoming = new URL(request.url);
+
+  const endpoint = incoming.searchParams.get("endpoint");
+
+  if (!endpoint || !/^[a-zA-Z0-9_-]+$/.test(endpoint)) {
+    return json(
+      {
+        success: false,
+        message: "Invalid or missing endpoint.",
+      },
+      400
+    );
+  }
+
+  const origin = cleanOrigin(env.COURSE_API_ORIGIN);
+  const targetUrl = `${origin}/${endpoint}`;
+
+  const headers = new Headers();
+
+  headers.set(
+    "Accept",
+    "application/json, text/plain, */*"
+  );
+
+  headers.set(
+    "Authorization",
+    `Bearer ${env.COURSE_API_TOKEN}`
+  );
+
+  headers.set(
+    "app_id",
+    env.COURSE_APP_ID || "1770981347"
+  );
+
+  headers.set(
+    "platform",
+    env.COURSE_PLATFORM || "3"
+  );
+
+  headers.set(
+    "Version",
+    env.COURSE_VERSION || "1"
+  );
+
+  // Only send user_id when configured.
+  if (env.COURSE_USER_ID) {
+    headers.set(
+      "user_id",
+      String(env.COURSE_USER_ID)
+    );
+  }
+
+  let upstreamRequest;
+
+  try {
+    if (request.method === "GET") {
+      const params = new URLSearchParams(
+        incoming.searchParams
+      );
+
+      params.delete("endpoint");
+      params.delete("target");
+
+      const url = params.toString()
+        ? `${targetUrl}?${params.toString()}`
+        : targetUrl;
+
+      upstreamRequest = new Request(url, {
+        method: "GET",
+        headers,
+      });
+
+    } else if (request.method === "POST") {
+      headers.set(
+        "Content-Type",
+        "application/json"
+      );
+
+      const body = await request.text();
+
+      upstreamRequest = new Request(targetUrl, {
+        method: "POST",
+        headers,
+        body,
+      });
+
+    } else {
+      return json(
+        {
+          success: false,
+          message: "Method not allowed.",
+        },
+        405
+      );
+    }
+
+    const upstream = await fetch(upstreamRequest);
+
+    const responseBody = await upstream.text();
+
+    const responseHeaders = new Headers();
+
+    responseHeaders.set(
+      "Content-Type",
+      upstream.headers.get("Content-Type") ||
+        "application/json; charset=utf-8"
+    );
+
+    responseHeaders.set(
+      "Cache-Control",
+      "no-store"
+    );
+
+    return new Response(responseBody, {
+      status: upstream.status,
+      headers: responseHeaders,
+    });
+
+  } catch (error) {
+    console.error(
+      "[/course] Upstream request failed:",
+      error
+    );
+
+    return json(
+      {
+        success: false,
+        message: "Upstream API request failed.",
+        error:
+          error instanceof Error
+            ? error.message
+            : String(error),
+      },
+      502
+    );
+  }
 }
