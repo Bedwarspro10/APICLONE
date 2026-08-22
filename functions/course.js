@@ -25,61 +25,33 @@ export async function onRequest(context) {
     const request = context.request;
     const env = context.env || {};
 
-    // CORS preflight
     if (request.method === "OPTIONS") {
-      return new Response(null, {
-        status: 204,
-        headers: CORS_HEADERS
-      });
+      return new Response(null, { status: 204, headers: CORS_HEADERS });
     }
 
-    // Required secret
     const rawToken = env.COURSE_API_TOKEN;
-
     if (!rawToken) {
-      return json({
-        success: false,
-        message: "COURSE_API_TOKEN is not configured."
-      }, 500);
+      return json({ success: false, message: "COURSE_API_TOKEN is not configured." }, 500);
     }
 
-    const token = String(rawToken)
-      .trim()
-      .replace(/^Bearer\s+/i, "");
-
+    const token = String(rawToken).trim().replace(/^Bearer\s+/i, "");
     if (!token) {
-      return json({
-        success: false,
-        message: "COURSE_API_TOKEN is empty."
-      }, 500);
+      return json({ success: false, message: "COURSE_API_TOKEN is empty." }, 500);
     }
 
     const url = new URL(request.url);
     const endpoint = url.searchParams.get("endpoint");
 
     if (!endpoint) {
-      return json({
-        success: false,
-        message: "Missing endpoint."
-      }, 400);
+      return json({ success: false, message: "Missing endpoint." }, 400);
     }
 
-    // Prevent arbitrary upstream paths
     if (!/^[a-zA-Z0-9_-]+$/.test(endpoint)) {
-      return json({
-        success: false,
-        message: "Invalid endpoint."
-      }, 400);
+      return json({ success: false, message: "Invalid endpoint." }, 400);
     }
 
-    // The course API and content-details API use different authorized origins.
-    // Keep both server-side so the browser never receives the bearer token.
-    const courseOrigin = String(
-      env.COURSE_API_ORIGIN || DEFAULT_COURSE_API_ORIGIN
-    ).replace(/\/+$/, "");
-    const contentOrigin = String(
-      env.CONTENT_API_ORIGIN || DEFAULT_CONTENT_API_ORIGIN
-    ).replace(/\/+$/, "");
+    const courseOrigin = String(env.COURSE_API_ORIGIN || DEFAULT_COURSE_API_ORIGIN).replace(/\/+$/, "");
+    const contentOrigin = String(env.CONTENT_API_ORIGIN || DEFAULT_CONTENT_API_ORIGIN).replace(/\/+$/, "");
 
     let upstreamUrl;
     if (endpoint === "content-details") {
@@ -88,103 +60,62 @@ export async function onRequest(context) {
       upstreamUrl = `${courseOrigin}/course/${endpoint}`;
     }
 
-    const appId = String(
-      env.COURSE_APP_ID || "1770981347"
-    ).trim();
+    // FIX 2: Safely forward ALL query parameters (like target=nexttoppers-content)
+    const params = new URLSearchParams();
+    for (const [key, value] of url.searchParams) {
+      if (key !== "endpoint") {
+        params.append(key, value);
+      }
+    }
+    const query = params.toString();
+    const finalUpstreamUrl = query ? `${upstreamUrl}?${query}` : upstreamUrl;
 
-    const platform = String(
-      env.COURSE_PLATFORM || "3"
-    ).trim();
-
-    const version = String(
-      env.COURSE_VERSION || "1"
-    ).trim();
+    const appId = String(env.COURSE_APP_ID || "1770981347").trim();
+    const platform = String(env.COURSE_PLATFORM || "3").trim();
+    const version = String(env.COURSE_VERSION || "1").trim();
 
     const upstreamHeaders = new Headers();
+    upstreamHeaders.set("Accept", "application/json, text/plain, */*");
+    upstreamHeaders.set("Authorization", `Bearer ${token}`);
+    upstreamHeaders.set("app_id", appId);
+    upstreamHeaders.set("platform", platform);
+    upstreamHeaders.set("Version", version);
 
-    upstreamHeaders.set(
-      "Accept",
-      "application/json, text/plain, */*"
-    );
-
-    upstreamHeaders.set(
-      "Authorization",
-      `Bearer ${token}`
-    );
-
-    upstreamHeaders.set(
-      "app_id",
-      appId
-    );
-
-    upstreamHeaders.set(
-      "platform",
-      platform
-    );
-
-    upstreamHeaders.set(
-      "Version",
-      version
-    );
-
-    // EXACT APP SPOOFING: Bypasses the direct entry block by looking like a mobile app
-    upstreamHeaders.set("Referer", "https://apiserver.deltastudy.site/");
-    upstreamHeaders.set("Origin", "https://apiserver.deltastudy.site");
-    upstreamHeaders.set("X-Requested-With", "xyz.nexttoppers.student");
-    upstreamHeaders.set("User-Agent", "Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36");
+    // FIX 1: Spoof the OFFICIAL website domain, not the API server domain!
+    upstreamHeaders.set("Referer", "https://deltastudy.site/");
+    upstreamHeaders.set("Origin", "https://deltastudy.site");
+    
+    // Pass along your actual device User-Agent dynamically
+    const incomingUA = request.headers.get("User-Agent");
+    if (incomingUA) {
+        upstreamHeaders.set("User-Agent", incomingUA);
+    } else {
+        upstreamHeaders.set("User-Agent", "Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36");
+    }
 
     if (env.COURSE_USER_ID) {
-      upstreamHeaders.set(
-        "user_id",
-        String(env.COURSE_USER_ID).trim()
-      );
+      upstreamHeaders.set("user_id", String(env.COURSE_USER_ID).trim());
     }
 
     let response;
 
     if (request.method === "POST") {
       const body = await request.text();
-
-      upstreamHeaders.set(
-        "Content-Type",
-        "application/json"
-      );
-
-      response = await fetch(upstreamUrl, {
+      upstreamHeaders.set("Content-Type", "application/json");
+      
+      // Use finalUpstreamUrl to ensure target parameters are kept during POST
+      response = await fetch(finalUpstreamUrl, {
         method: "POST",
         headers: upstreamHeaders,
         body
       });
-
     } else if (request.method === "GET") {
-
-      const params = new URLSearchParams();
-
-      for (const [key, value] of url.searchParams) {
-        if (
-          key !== "endpoint" &&
-          key !== "target"
-        ) {
-          params.append(key, value);
-        }
-      }
-
-      const query = params.toString();
-
-      const finalUrl = query
-        ? `${upstreamUrl}?${query}`
-        : upstreamUrl;
-
-      response = await fetch(finalUrl, {
+      response = await fetch(finalUpstreamUrl, {
         method: "GET",
         headers: upstreamHeaders
       });
-
     } else {
-      return json({
-        success: false,
-        message: "Method not allowed."
-      }, 405);
+      return json({ success: false, message: "Method not allowed." }, 405);
     }
 
     const responseText = await response.text();
@@ -193,20 +124,13 @@ export async function onRequest(context) {
       status: response.status,
       headers: {
         ...CORS_HEADERS,
-        "Content-Type":
-          response.headers.get("Content-Type") ||
-          "application/json; charset=utf-8",
+        "Content-Type": response.headers.get("Content-Type") || "application/json; charset=utf-8",
         "Cache-Control": "no-store"
       }
     });
 
   } catch (error) {
-
-    console.error(
-      "COURSE FUNCTION ERROR:",
-      error
-    );
-
+    console.error("COURSE FUNCTION ERROR:", error);
     return json({
       success: false,
       message: "Course function exception.",
