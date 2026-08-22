@@ -312,18 +312,54 @@
     }
   }
 
-  function openMedia(fileObj) {
-    let videoUrls = [];
-    try {
-      if (fileObj?.data?.download_urls) videoUrls = JSON.parse(fileObj.data.download_urls);
-    } catch (e) {}
+  async function openMedia(fileObj) {
+    const id = String(fileObj?.entity_id || fileObj?.data?.id || fileObj?.id || "");
+    const title = fileObj?.title || fileObj?.data?.title || fileObj?.name || "Content";
+    const fileType = Number(fileObj?.data?.file_type || fileObj?.data?.content_type || 0);
 
-    if (videoUrls.length > 0) {
-      window.open(videoUrls[videoUrls.length - 1].url, '_blank');
-    } else if (fileObj?.data?.dynamic_link) {
-      window.open(fileObj.data.dynamic_link, '_blank');
-    } else {
-      alert("Opening item: " + (fileObj?.title || fileObj?.name));
+    if (!id) {
+      alert("Content ID is missing.");
+      return;
+    }
+
+    // Video content: resolve through the authorized content-details API,
+    // then hand the returned playable URL to the local player.
+    if (fileType === 2 || fileObj?.type === "file" && fileObj?.data?.vdc_id) {
+      window.open(
+        `player.html?content_id=${encodeURIComponent(id)}&course_id=${encodeURIComponent(courseId)}&title=${encodeURIComponent(title)}`,
+        '_blank'
+      );
+      return;
+    }
+
+    // Documents/PDFs: resolve the real file URL through content-details.
+    const win = window.open('', '_blank');
+    if (!win) {
+      alert("Please allow pop-ups for this site.");
+      return;
+    }
+    win.document.write('<!doctype html><html><body style="margin:0;background:#05070a;color:#fff;font-family:system-ui;display:grid;place-items:center;height:100vh"><div>Opening document…</div></body></html>');
+
+    try {
+      const response = await API.get('content-details', {
+        content_id: id,
+        courseid: String(courseId)
+      }, 'nexttoppers-content');
+
+      const data = response?.data || {};
+      const fileUrl = data.file_url || data.url || data.pdf_view_url || data.document_url || '';
+
+      if (!fileUrl || !/^https?:\/\//i.test(fileUrl)) {
+        win.close();
+        alert(response?.message || 'No document URL was returned for this content.');
+        return;
+      }
+
+      win.location.replace(fileUrl);
+    } catch (err) {
+      win.close();
+      console.error('Content details error:', err);
+      alert(err?.message || 'Unable to open this content.');
     }
   }
 

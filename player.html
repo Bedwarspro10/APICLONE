@@ -10,7 +10,7 @@
  try{
    let url=qs.get('video_url')||'';
    if(!url){
-     const res=await API.post('content-details',{content_id:id,course_id:course},'nexttoppers-course');
+     const res=await API.get('content-details',{content_id:id,courseid:course},'nexttoppers-content');
      if(typeof EduVibeDecrypt!=='undefined' && typeof res.data==='string'){
        try{ res=await EduVibeDecrypt.decryptResponse(res); }catch{}
      }
