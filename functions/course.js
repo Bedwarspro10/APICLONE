@@ -4,7 +4,7 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers":
-    "Content-Type, Accept, Authorization, app_id, platform, Version, user_id",
+  "Content-Type, Accept, Authorization, app_id, platform, Version, user_id, prefers-color-scheme",
   "Access-Control-Max-Age": "86400"
 };
 
