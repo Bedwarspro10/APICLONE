@@ -1,29 +1,39 @@
-/* Browser-side API helper. Authentication stays server-side in /functions/course.js. */
-window.API = {
-  baseUrl: '/course',
+const API_HELPER = {
+  async fetchEndpoint(endpoint, payload = {}) {
+    try {
+      const response = await fetch(`/functions/course?endpoint=${encodeURIComponent(endpoint)}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
 
-  post: async function(endpoint, payload, target = 'nexttoppers-course') {
-    const requestUrl = `${this.baseUrl}?endpoint=${encodeURIComponent(endpoint)}&target=${encodeURIComponent(target)}`;
-    const response = await fetch(requestUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify(payload || {})
-    });
-    const raw = await response.json();
-    if (!response.ok || raw?.success === false) throw new Error(raw?.message || `API request failed (${response.status})`);
-    if (raw?.data && typeof raw.data === 'string' && typeof window.EduVibeDecrypt !== 'undefined') {
-      return await window.EduVibeDecrypt.decryptResponse(raw);
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error("API Helper Error:", error);
+      throw error;
     }
-    return raw;
   },
 
-  get: async function(endpoint, params = {}, target = 'nexttoppers-course') {
-    const qs = new URLSearchParams({ endpoint, target, ...params });
-    const response = await fetch(`${this.baseUrl}?${qs.toString()}`, {
-      method: 'GET', headers: { 'Accept': 'application/json' }
-    });
-    const raw = await response.json();
-    if (!response.ok || raw?.success === false) throw new Error(raw?.message || `API request failed (${response.status})`);
-    return raw;
+  async getEndpoint(endpoint, params = {}) {
+    try {
+      const queryParams = new URLSearchParams({ endpoint, ...params }).toString();
+      const response = await fetch(`/functions/course?${queryParams}`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error("API Helper Error:", error);
+      throw error;
+    }
   }
 };
+
+window.API_HELPER = API_HELPER;
