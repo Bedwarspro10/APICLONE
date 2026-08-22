@@ -2,91 +2,83 @@ export async function onRequest(context) {
   const request = context.request;
   const url = new URL(request.url);
 
-  if (request.method === "OPTIONS") {
-    return new Response(null, {
-      status: 204,
-      headers: corsHeaders(request)
-    });
-  }
+  if (request.method === "OPTIONS")
+    return new Response(null, { status: 204, headers: corsHeaders(request) });
 
   try {
-    const endpoint = url.searchParams.get("endpoint");
+    const endpoint = url.searchParams.get("endpoint") || "";
+    const allowed = new Set(["course-details", "all-content", "content-details"]);
 
-    if (!endpoint) {
-      return json({ success: false, message: "Missing endpoint" }, 400, request);
+    if (!allowed.has(endpoint))
+      return json({ success:false, message:"Endpoint not allowed" }, 400, request);
+
+    const origin = String(context.env.COURSE_API_ORIGIN || "").replace(/\/+$/, "");
+    if (!origin)
+      return json({ success:false, message:"COURSE_API_ORIGIN is not configured." }, 500, request);
+
+    const upstreamUrl = new URL(`/course/${endpoint}`, origin + "/");
+
+    for (const [key, value] of url.searchParams) {
+      if (key !== "endpoint" && key !== "target")
+        upstreamUrl.searchParams.set(key, value);
     }
 
-    const allowed = [
-      "course-details",
-      "all-content"
-    ];
+    const headers = new Headers({
+      "Accept": "application/json, text/plain, */*"
+    });
 
-    if (!allowed.includes(endpoint)) {
-      return json({ success: false, message: "Endpoint not allowed" }, 400, request);
+    const serverToken = context.env.COURSE_API_TOKEN;
+    const clientAuth = request.headers.get("Authorization");
+
+    if (serverToken)
+      headers.set("Authorization", /^Bearer\s/i.test(serverToken) ? serverToken : `Bearer ${serverToken}`);
+    else if (clientAuth)
+      headers.set("Authorization", clientAuth);
+
+    for (const name of ["app_id", "platform", "user_id", "Version"]) {
+      const value = request.headers.get(name);
+      if (value) headers.set(name, value);
     }
 
-    const origin = context.env.COURSE_API_ORIGIN;
-
-    if (!origin) {
-      return json({
-        success: false,
-        message: "COURSE_API_ORIGIN is not configured."
-      }, 500, request);
-    }
-
-    const upstreamUrl =
-      `${origin}/course/${endpoint}`;
-
-    const headers = new Headers();
-
-    headers.set("Accept", "application/json");
-
-    const auth = request.headers.get("Authorization");
-    if (auth) headers.set("Authorization", auth);
-
-    let body = undefined;
-
+    let body;
     if (request.method !== "GET" && request.method !== "HEAD") {
-      body = await request.text();
-
-      if (body) {
-        headers.set(
-          "Content-Type",
-          request.headers.get("Content-Type") ||
-          "application/json"
-        );
-      }
+      body = await request.arrayBuffer();
+      const ct = request.headers.get("Content-Type");
+      if (ct) headers.set("Content-Type", ct);
     }
 
-    const upstream = await fetch(upstreamUrl, {
+    const upstream = await fetch(upstreamUrl.toString(), {
       method: request.method,
       headers,
       body
     });
 
-    const responseBody = await upstream.arrayBuffer();
-
     const responseHeaders = new Headers({
-      "Content-Type":
-        upstream.headers.get("Content-Type") ||
-        "application/json"
+      "Content-Type": upstream.headers.get("Content-Type") || "application/json; charset=utf-8"
     });
-
     addCors(responseHeaders, request);
 
-    return new Response(responseBody, {
+    return new Response(upstream.body, {
       status: upstream.status,
       headers: responseHeaders
     });
-
   } catch (error) {
     return json({
-      success: false,
-      message: error instanceof Error
-        ? error.message
-        : "Upstream request failed"
+      success:false,
+      message:error instanceof Error ? error.message : "Upstream request failed"
     }, 500, request);
   }
+}
+
+function addCors(headers, request) {
+  headers.set("Access-Control-Allow-Origin", request.headers.get("Origin") || "*");
+  headers.set("Vary", "Origin");
+  headers.set("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  headers.set(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization, Accept, app_id, platform, user_id, Version, prefers-color-scheme"
+  );
+  headers.set("Access-Control-Max-Age", "86400");
 }
 
 function corsHeaders(request) {
@@ -95,33 +87,8 @@ function corsHeaders(request) {
   return h;
 }
 
-function addCors(headers, request) {
-  const origin = request.headers.get("Origin");
-
-  headers.set(
-    "Access-Control-Allow-Origin",
-    origin || "*"
-  );
-
-  headers.set(
-    "Access-Control-Allow-Methods",
-    "GET,POST,OPTIONS"
-  );
-
-  headers.set(
-    "Access-Control-Allow-Headers",
-    "Content-Type, Authorization, Accept"
-  );
-
-  headers.set("Access-Control-Max-Age", "86400");
-}
-
 function json(data, status, request) {
-  const headers = corsHeaders(request);
-  headers.set("Content-Type", "application/json");
-
-  return new Response(JSON.stringify(data), {
-    status,
-    headers
-  });
+  const h = corsHeaders(request);
+  h.set("Content-Type", "application/json; charset=utf-8");
+  return new Response(JSON.stringify(data), { status, headers:h });
 }
