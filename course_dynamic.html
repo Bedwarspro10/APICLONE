@@ -105,7 +105,7 @@
 
 
 
-<script src="api-helper.js"></script>
+<script src="player_decrypt.js"></script><script src="api-helper.js"></script>
 
 <script>
   const urlParams = new URLSearchParams(window.location.search);
@@ -324,7 +324,7 @@
 
     // Video content: resolve through the authorized content-details API,
     // then hand the returned playable URL to the local player.
-    if (fileType === 2 || fileObj?.type === "file" && fileObj?.data?.vdc_id) {
+    if (fileType === 2 || fileType === 3 || fileObj?.data?.vdc_id) {
       window.open(
         `player.html?content_id=${encodeURIComponent(id)}&course_id=${encodeURIComponent(courseId)}&title=${encodeURIComponent(title)}`,
         '_blank'
@@ -333,13 +333,6 @@
     }
 
     // Documents/PDFs: resolve the real file URL through content-details.
-    const win = window.open('', '_blank');
-    if (!win) {
-      alert("Please allow pop-ups for this site.");
-      return;
-    }
-    win.document.write('<!doctype html><html><body style="margin:0;background:#05070a;color:#fff;font-family:system-ui;display:grid;place-items:center;height:100vh"><div>Opening document…</div></body></html>');
-
     try {
       const response = await API.get('content-details', {
         content_id: id,
@@ -350,14 +343,15 @@
       const fileUrl = data.file_url || data.url || data.pdf_view_url || data.document_url || '';
 
       if (!fileUrl || !/^https?:\/\//i.test(fileUrl)) {
-        win.close();
         alert(response?.message || 'No document URL was returned for this content.');
         return;
       }
 
-      win.location.replace(fileUrl);
+      // Keep the PDF on our own origin so Android WebView does not turn the
+      // navigation into about:blank#blocked. The Worker validates the remote
+      // CloudFront host before proxying the file.
+      window.location.href = `/course-file?url=${encodeURIComponent(fileUrl)}`;
     } catch (err) {
-      win.close();
       console.error('Content details error:', err);
       alert(err?.message || 'Unable to open this content.');
     }

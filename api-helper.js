@@ -36,10 +36,10 @@ window.API = {
       headers: { 'Accept': 'application/json, text/plain, */*' }
     });
 
-    return this._read(response);
+    return this._read(response, true);
   },
 
-  async _read(response) {
+  async _read(response, decryptData = true) {
     const text = await response.text();
     let data;
     try {
@@ -50,6 +50,10 @@ window.API = {
 
     if (!response.ok || data?.success === false) {
       throw new Error(data?.message || `API request failed (${response.status})`);
+    }
+    if (decryptData && data?.data && typeof data.data === 'string' && window.EduVibeDecrypt?.decryptResponse) {
+      try { return await window.EduVibeDecrypt.decryptResponse(data); }
+      catch (e) { console.warn('Encrypted API response could not be decrypted:', e); }
     }
     return data;
   }
