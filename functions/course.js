@@ -1,21 +1,21 @@
-/**
- * Cloudflare Pages Function: /course
- *
- * COURSE_API_ORIGIN is intentionally fixed here because this Pages
- * deployment is currently not receiving the [vars] value from wrangler.toml.
- *
- * Keep COURSE_API_TOKEN as a Cloudflare Secret.
- */
-
 const COURSE_API_ORIGIN = "https://course.nexttoppers.com";
+
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers":
+    "Content-Type, Accept, Authorization, app_id, platform, Version, user_id",
+  "Access-Control-Max-Age": "86400"
+};
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
     headers: {
+      ...CORS_HEADERS,
       "Content-Type": "application/json; charset=utf-8",
-      "Cache-Control": "no-store",
-    },
+      "Cache-Control": "no-store"
+    }
   });
 }
 
@@ -23,7 +23,14 @@ export async function onRequest(context) {
   const { request, env } = context;
   const incoming = new URL(request.url);
 
-  // The token must remain a Cloudflare Secret.
+  // Handle browser CORS preflight.
+  if (request.method === "OPTIONS") {
+    return new Response(null, {
+      status: 204,
+      headers: CORS_HEADERS
+    });
+  }
+
   if (!env.COURSE_API_TOKEN) {
     return json({
       success: false,
@@ -50,8 +57,6 @@ export async function onRequest(context) {
     "Version": env.COURSE_VERSION || "1"
   });
 
-  // Only add user_id when configured.
-  // Never send an empty user_id header.
   if (env.COURSE_USER_ID) {
     headers.set("user_id", String(env.COURSE_USER_ID));
   }
@@ -61,7 +66,6 @@ export async function onRequest(context) {
 
     if (request.method === "GET") {
       const params = new URLSearchParams(incoming.searchParams);
-
       params.delete("endpoint");
       params.delete("target");
 
@@ -97,6 +101,7 @@ export async function onRequest(context) {
     return new Response(body, {
       status: upstream.status,
       headers: {
+        ...CORS_HEADERS,
         "Content-Type":
           upstream.headers.get("Content-Type") ||
           "application/json; charset=utf-8",
@@ -105,7 +110,7 @@ export async function onRequest(context) {
     });
 
   } catch (error) {
-    console.error("[course] upstream request failed", error);
+    console.error("[course] upstream request failed:", error);
 
     return json({
       success: false,
