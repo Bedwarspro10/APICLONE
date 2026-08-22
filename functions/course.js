@@ -1,4 +1,5 @@
-const COURSE_API_ORIGIN = "https://course.nexttoppers.com";
+const DEFAULT_COURSE_API_ORIGIN = "https://course.nexttoppers.com";
+const DEFAULT_CONTENT_API_ORIGIN = "https://apiserver.deltastudy.site";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -71,8 +72,21 @@ export async function onRequest(context) {
       }, 400);
     }
 
-    const upstreamUrl =
-      `${COURSE_API_ORIGIN}/course/${endpoint}`;
+    // The course API and content-details API use different authorized origins.
+    // Keep both server-side so the browser never receives the bearer token.
+    const courseOrigin = String(
+      env.COURSE_API_ORIGIN || DEFAULT_COURSE_API_ORIGIN
+    ).replace(/\/+$/, "");
+    const contentOrigin = String(
+      env.CONTENT_API_ORIGIN || DEFAULT_CONTENT_API_ORIGIN
+    ).replace(/\/+$/, "");
+
+    let upstreamUrl;
+    if (endpoint === "content-details") {
+      upstreamUrl = `${contentOrigin}/api/nexttoppers/content-details`;
+    } else {
+      upstreamUrl = `${courseOrigin}/course/${endpoint}`;
+    }
 
     const appId = String(
       env.COURSE_APP_ID || "1770981347"
