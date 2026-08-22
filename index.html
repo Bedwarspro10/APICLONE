@@ -1,14 +1,522 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Next Toppers</title>
-  <meta http-equiv="refresh" content="0; url=/course.html">
-  <script>location.replace('/course.html' + location.search + location.hash);</script>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Nexttoppers · Pick Your Batch</title>
+  <meta name="description" content="Access premium educational courses and batches at Nexttoppers."/>
+  
+  <!-- Favicon -->
+  <link href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎓</text></svg>" rel="icon"/>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin=""/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Teko:wght@600;700&display=swap" rel="stylesheet"/>
+
+  <style>
+    :root {
+      --bg: #05070a;
+      --card-bg: #111319;
+      --accent: #ff7e21;
+      --accent-glow: rgba(255, 126, 33, 0.4);
+      --text-primary: #ffffff;
+      --text-secondary: #888b94;
+      --text-cream: #f1f1e6;
+      --border: rgba(255, 255, 255, 0.06);
+      --grid-color: rgba(255, 126, 33, 0.03);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg);
+      color: var(--text-primary);
+      overflow-x: hidden;
+      min-height: 100vh;
+    }
+
+    /* BACKGROUND ATMOSPHERE */
+    .atmosphere {
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+    }
+
+    .grid-overlay {
+      position: absolute;
+      inset: 0;
+      background-image: 
+        linear-gradient(var(--grid-color) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+      background-size: 60px 60px;
+    }
+
+    .glow-overlay {
+      position: absolute;
+      top: 20%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 80vw;
+      height: 60vh;
+      background: radial-gradient(circle, rgba(255, 126, 33, 0.08) 0%, transparent 70%);
+      filter: blur(80px);
+    }
+
+    /* HEADER */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(5, 7, 10, 0.8);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 40px;
+      display: flex;
+      align-items: center;
+    }
+
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+    }
+
+    .brand-logo {
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, #ff7e21, #ff4d00);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Teko', sans-serif;
+      font-weight: 700;
+      font-size: 1.4rem;
+      color: white;
+      box-shadow: 0 0 20px rgba(255, 77, 0, 0.3);
+    }
+
+    .brand-name {
+      font-family: 'Teko', sans-serif;
+      font-size: 1.8rem;
+      font-weight: 600;
+      letter-spacing: 1px;
+      color: var(--accent);
+      text-transform: uppercase;
+    }
+
+    /* HERO */
+    .hero {
+      padding: 80px 20px 40px;
+      text-align: center;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .badge-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 16px;
+      background: rgba(255, 126, 33, 0.05);
+      border: 1px solid rgba(255, 126, 33, 0.2);
+      border-radius: 100px;
+      margin-bottom: 30px;
+    }
+
+    .dot {
+      width: 6px;
+      height: 6px;
+      background: var(--accent);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--accent);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(1.2); }
+    }
+
+    .badge-pill span {
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 2px;
+      color: var(--accent);
+      text-transform: uppercase;
+    }
+
+    .hero h1 {
+      font-family: 'Teko', sans-serif;
+      font-size: clamp(3.5rem, 8vw, 7.5rem);
+      line-height: 0.9;
+      text-transform: uppercase;
+      margin-bottom: 24px;
+    }
+
+    .hero h1 .pick-your {
+      color: var(--text-cream);
+      display: block;
+    }
+
+    .hero h1 .batch-start {
+      background: linear-gradient(to bottom, #ff983d, #ff6a00);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      display: block;
+    }
+
+    .hero-subtitle {
+      font-size: 1.1rem;
+      color: var(--text-secondary);
+      font-weight: 500;
+      letter-spacing: 0.5px;
+      margin-bottom: 40px;
+      text-transform: uppercase;
+    }
+
+    .hero-subtitle .highlight {
+      color: var(--accent);
+    }
+
+    .hero-stats {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 24px;
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .stat-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .stat-divider {
+      width: 1px;
+      height: 16px;
+      background: var(--border);
+    }
+
+    /* GRID & SEARCH */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 20px 100px;
+    }
+
+    .filter-section {
+      max-width: 1200px;
+      margin: 0 auto 40px;
+      padding: 0 20px;
+    }
+
+    .search-input {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 126, 33, 0.2);
+      border-radius: 100px;
+      padding: 18px 30px;
+      color: white;
+      font-family: 'Inter', sans-serif;
+      font-size: 1rem;
+      font-weight: 600;
+      letter-spacing: 1px;
+      transition: all 0.3s;
+      outline: none;
+      margin-bottom: 24px;
+    }
+
+    .search-input:focus {
+      border-color: rgba(255, 126, 33, 0.6);
+      background: rgba(255, 126, 33, 0.08);
+      box-shadow: 0 0 30px rgba(255, 126, 33, 0.15);
+    }
+
+    .filter-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 30px;
+    }
+
+    .filter-tag {
+      padding: 8px 20px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      color: var(--text-secondary);
+      font-size: 0.7rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .filter-tag.active, .filter-tag:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      box-shadow: 0 0 15px rgba(255, 126, 33, 0.15);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 30px;
+    }
+
+    /* CARD */
+    .course-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      overflow: hidden;
+      cursor: pointer;
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .course-card:hover {
+      transform: translateY(-8px);
+      border-color: rgba(255, 126, 33, 0.4);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+    }
+
+    .card-image-wrap {
+      position: relative;
+      width: 100%;
+      height: 190px;
+      overflow: hidden;
+      background: #000;
+    }
+
+    .card-image {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.6s;
+    }
+
+    .course-card:hover .card-image {
+      transform: scale(1.08);
+    }
+
+    .card-content {
+      padding: 24px;
+    }
+
+    .card-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      background: rgba(255, 126, 33, 0.08);
+      border: 1px solid rgba(255, 126, 33, 0.15);
+      border-radius: 100px;
+      margin-bottom: 16px;
+      font-size: 0.65rem;
+      font-weight: 800;
+      color: var(--accent);
+      text-transform: uppercase;
+    }
+
+    .card-title {
+      font-family: 'Teko', sans-serif;
+      font-size: 1.8rem;
+      line-height: 1.1;
+      color: var(--text-primary);
+      margin-bottom: 20px;
+      text-transform: uppercase;
+    }
+
+    .card-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 15px;
+      border-top: 1px solid var(--border);
+    }
+
+    .start-learning {
+      font-size: 0.85rem;
+      font-weight: 800;
+      color: var(--accent);
+      text-transform: uppercase;
+    }
+
+    .arrow-btn {
+      width: 36px;
+      height: 36px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent);
+    }
+
+    footer {
+      padding: 40px 20px;
+      text-align: center;
+      border-top: 1px solid var(--border);
+      color: var(--text-secondary);
+      font-size: 0.75rem;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+  </style>
 </head>
 <body>
-  <p>Opening Next Toppers…</p>
-  <noscript><a href="/course.html">Continue to Next Toppers</a></noscript>
+
+  <div class="atmosphere">
+    <div class="grid-overlay"></div>
+    <div class="glow-overlay"></div>
+  </div>
+
+  <header>
+    <a class="nav-brand" href="index.html">
+      <div class="brand-logo">NT</div>
+      <span class="brand-name">Nexttoppers</span>
+    </a>
+  </header>
+
+  <section class="hero">
+    <div class="badge-pill">
+      <div class="dot"></div>
+      <span>Your Batches</span>
+    </div>
+    <h1>
+      <span class="pick-your">Pick Your</span>
+      <span class="batch-start">Batch &amp; Start</span>
+    </h1>
+    <p class="hero-subtitle">
+      Sabse pehle batch choose karo, <span class="highlight">phir learning shuru</span>
+    </p>
+    <div class="hero-stats">
+      <div class="stat-item">🔥 <span>3 Batches Available</span></div>
+      <div class="stat-divider"></div>
+      <div class="stat-item">⚡ <span>Live Now</span></div>
+      <div class="stat-divider"></div>
+      <div class="stat-item">🎯 <span>Self-Paced</span></div>
+    </div>
+  </section>
+
+  <div class="filter-section">
+    <input class="search-input" id="searchInput" placeholder="🔍 SEARCH BATCH..." type="text"/>
+    
+    <div class="filter-tags">
+      <button class="filter-tag active" onclick="filterClass('all')">All</button>
+      <button class="filter-tag" onclick="filterClass('10th')">Class 10th</button>
+      <button class="filter-tag" onclick="filterClass('9th')">Class 9th</button>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="grid" id="courseGrid">
+      
+      <!-- BATCH 1 -->
+      <div class="course-card" data-title="AARAMBH 2.0 10th BATCH" data-class="10th" onclick="openCourse(176)">
+        <div class="card-image-wrap">
+          <img alt="AARAMBH 2.0 10th BATCH 26-27" class="card-image" src="https://dylnd2lqy6eys.cloudfront.net/1770981347/admin_v2/uploads/courses/thumbnail/356423_125_10th%20aarambh%202.0%20banner%20app%202.jpg"/>
+        </div>
+        <div class="card-content">
+          <div class="card-badge">CLASS 10TH</div>
+          <h3 class="card-title">AARAMBH 2.0 10th BATCH 26-27</h3>
+          <div class="card-footer">
+            <span class="start-learning">Start Learning</span>
+            <div class="arrow-btn">→</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- BATCH 2 -->
+      <div class="course-card" data-title="AARAMBH 2.0 9th BATCH" data-class="9th" onclick="openCourse(178)">
+        <div class="card-image-wrap">
+          <img alt="AARAMBH 2.0 9th BATCH 26-27" class="card-image" src="https://dylnd2lqy6eys.cloudfront.net/1770981347/admin_v2/uploads/courses/thumbnail/4330317_125_9th%20aarambh%202.0%20banner%20app%202.jpg"/>
+        </div>
+        <div class="card-content">
+          <div class="card-badge">CLASS 9TH</div>
+          <h3 class="card-title">AARAMBH 2.0 9th BATCH 26-27</h3>
+          <div class="card-footer">
+            <span class="start-learning">Start Learning</span>
+            <div class="arrow-btn">→</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- BATCH 3 -->
+      <div class="course-card" data-title="AARAMBH 2.0 PLUS 9th BATCH" data-class="9th" onclick="openCourse(179)">
+        <div class="card-image-wrap">
+          <img alt="AARAMBH 2.0 PLUS 9th BATCH 26-27" class="card-image" src="https://dylnd2lqy6eys.cloudfront.net/1770981347/admin_v2/uploads/courses/thumbnail/1219057_125_9th%20aarambh%202.0%20plus%20banner%20app.jpg"/>
+        </div>
+        <div class="card-content">
+          <div class="card-badge">CLASS 9TH</div>
+          <h3 class="card-title">AARAMBH 2.0 PLUS 9th BATCH 26-27</h3>
+          <div class="card-footer">
+            <span class="start-learning">Start Learning</span>
+            <div class="arrow-btn">→</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <footer>
+    <p>© Nexttoppers · All Rights Reserved</p>
+  </footer>
+
+  <script>
+    // Navigation Function
+    function openCourse(courseId) {
+      window.location.href = `course_dynamic.html?course_id=${courseId}`;
+    }
+
+    // Live Filter Search
+    document.getElementById('searchInput').addEventListener('keyup', function() {
+      const value = this.value.toLowerCase();
+      const cards = document.querySelectorAll('.course-card');
+      
+      cards.forEach(card => {
+        const title = card.getAttribute('data-title').toLowerCase();
+        if (title.includes(value)) {
+          card.style.display = 'block';
+        } else {
+          card.style.display = 'none';
+        }
+      });
+    });
+
+    // Tag Filter
+    function filterClass(className) {
+      const cards = document.querySelectorAll('.course-card');
+      const buttons = document.querySelectorAll('.filter-tag');
+
+      buttons.forEach(btn => btn.classList.remove('active'));
+      event.target.classList.add('active');
+
+      cards.forEach(card => {
+        if (className === 'all' || card.getAttribute('data-class') === className) {
+          card.style.display = 'block';
+        } else {
+          card.style.display = 'none';
+        }
+      });
+    }
+  </script>
 </body>
 </html>
