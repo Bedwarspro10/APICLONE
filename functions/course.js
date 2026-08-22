@@ -127,6 +127,11 @@ export async function onRequest(context) {
       version
     );
 
+    // Spoof official headers to bypass the "Direct API entry closed" block
+    upstreamHeaders.set("Referer", "https://apiserver.deltastudy.site/");
+    upstreamHeaders.set("Origin", "https://apiserver.deltastudy.site");
+    upstreamHeaders.set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+
     if (env.COURSE_USER_ID) {
       upstreamHeaders.set(
         "user_id",
@@ -207,4 +212,4 @@ export async function onRequest(context) {
       error: error?.message || String(error)
     }, 500);
   }
-        }
+}
