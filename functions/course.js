@@ -8,9 +8,9 @@ const CORS_HEADERS = {
   "Access-Control-Max-Age": "86400"
 };
 
-function makeJson(data, status) {
+function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
-    status: status,
+    status,
     headers: {
       ...CORS_HEADERS,
       "Content-Type": "application/json; charset=utf-8",
@@ -32,117 +32,165 @@ export async function onRequest(context) {
       });
     }
 
-    // Authentication secret
-    const token = env.COURSE_API_TOKEN;
+    // Required secret
+    const rawToken = env.COURSE_API_TOKEN;
 
-    if (!token) {
-      return makeJson({
+    if (!rawToken) {
+      return json({
         success: false,
         message: "COURSE_API_TOKEN is not configured."
       }, 500);
     }
 
-    const incoming = new URL(request.url);
-    const endpoint = incoming.searchParams.get("endpoint");
+    const token = String(rawToken)
+      .trim()
+      .replace(/^Bearer\s+/i, "");
+
+    if (!token) {
+      return json({
+        success: false,
+        message: "COURSE_API_TOKEN is empty."
+      }, 500);
+    }
+
+    const url = new URL(request.url);
+    const endpoint = url.searchParams.get("endpoint");
 
     if (!endpoint) {
-      return makeJson({
+      return json({
         success: false,
         message: "Missing endpoint."
       }, 400);
     }
 
-    // Only permit simple endpoint names.
+    // Prevent arbitrary upstream paths
     if (!/^[a-zA-Z0-9_-]+$/.test(endpoint)) {
-      return makeJson({
+      return json({
         success: false,
         message: "Invalid endpoint."
       }, 400);
     }
 
     const upstreamUrl =
-      COURSE_API_ORIGIN + "/" + endpoint;
+      `${COURSE_API_ORIGIN}/course/${endpoint}`;
 
-    const upstreamHeaders = {
-      "Accept": "application/json, text/plain, */*",
-      "Authorization": "Bearer " + String(token),
-      "app_id": String(env.COURSE_APP_ID || "1770981347"),
-      "platform": String(env.COURSE_PLATFORM || "3"),
-      "Version": String(env.COURSE_VERSION || "1")
-    };
+    const appId = String(
+      env.COURSE_APP_ID || "1770981347"
+    ).trim();
+
+    const platform = String(
+      env.COURSE_PLATFORM || "3"
+    ).trim();
+
+    const version = String(
+      env.COURSE_VERSION || "1"
+    ).trim();
+
+    const upstreamHeaders = new Headers();
+
+    upstreamHeaders.set(
+      "Accept",
+      "application/json, text/plain, */*"
+    );
+
+    upstreamHeaders.set(
+      "Authorization",
+      `Bearer ${token}`
+    );
+
+    upstreamHeaders.set(
+      "app_id",
+      appId
+    );
+
+    upstreamHeaders.set(
+      "platform",
+      platform
+    );
+
+    upstreamHeaders.set(
+      "Version",
+      version
+    );
 
     if (env.COURSE_USER_ID) {
-      upstreamHeaders.user_id =
-        String(env.COURSE_USER_ID);
+      upstreamHeaders.set(
+        "user_id",
+        String(env.COURSE_USER_ID).trim()
+      );
     }
 
-    let upstreamResponse;
+    let response;
 
-    if (request.method === "GET") {
-      const params = new URLSearchParams(
-        incoming.search
+    if (request.method === "POST") {
+      const body = await request.text();
+
+      upstreamHeaders.set(
+        "Content-Type",
+        "application/json"
       );
 
-      params.delete("endpoint");
-      params.delete("target");
+      response = await fetch(upstreamUrl, {
+        method: "POST",
+        headers: upstreamHeaders,
+        body
+      });
+
+    } else if (request.method === "GET") {
+
+      const params = new URLSearchParams();
+
+      for (const [key, value] of url.searchParams) {
+        if (
+          key !== "endpoint" &&
+          key !== "target"
+        ) {
+          params.append(key, value);
+        }
+      }
 
       const query = params.toString();
 
       const finalUrl = query
-        ? upstreamUrl + "?" + query
+        ? `${upstreamUrl}?${query}`
         : upstreamUrl;
 
-      upstreamResponse = await fetch(finalUrl, {
+      response = await fetch(finalUrl, {
         method: "GET",
         headers: upstreamHeaders
       });
 
-    } else if (request.method === "POST") {
-      const requestBody = await request.text();
-
-      upstreamHeaders["Content-Type"] =
-        "application/json";
-
-      upstreamResponse = await fetch(upstreamUrl, {
-        method: "POST",
-        headers: upstreamHeaders,
-        body: requestBody
-      });
-
     } else {
-      return makeJson({
+      return json({
         success: false,
         message: "Method not allowed."
       }, 405);
     }
 
-    const responseText =
-      await upstreamResponse.text();
+    const responseText = await response.text();
 
     return new Response(responseText, {
-      status: upstreamResponse.status,
+      status: response.status,
       headers: {
         ...CORS_HEADERS,
         "Content-Type":
-          upstreamResponse.headers.get(
-            "Content-Type"
-          ) || "application/json; charset=utf-8",
+          response.headers.get("Content-Type") ||
+          "application/json; charset=utf-8",
         "Cache-Control": "no-store"
       }
     });
 
   } catch (error) {
+
     console.error(
       "COURSE FUNCTION ERROR:",
       error
     );
 
-    return makeJson({
+    return json({
       success: false,
       message: "Course function exception.",
-      error: error && error.message
-        ? error.message
-        : String(error)
+      error: error?.message || String(error)
     }, 500);
   }
-}
+        }
